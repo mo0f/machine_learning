@@ -7,19 +7,20 @@ class Model():
     def __init__(self):
         self.memory = []
         self.memory_limit = 2000
-        self.gamma = .95
-        self.lr = .001
+        self.replay_batch = 32
+        self.gamma = 0.95
+        self.lr = 0.001
         # Random Action Prob.
-        self.epsilon= .02
+        self.epsilon = 1
         # If using decaying epsilons
-        self.epsilon_min = .001
-        self.epsilon_decay = .995
+        self.epsilon_min = .01
+        self.epsilon_decay = 0.995
         self.model = ''
         # [Cart Pos, Cart Vel, Pole Angle, Pole Velocity at Tip]
         self.num_states = 4
         # [Move left, Move right]
         self.num_actions = 2
-        self.num_hidden = 10
+        self.num_hidden = 24
         # Input is State in this case its 4 Params:
         self.in_states = tf.placeholder(tf.float32, shape=[self.num_states,], name="in_state")
         self.reform_states = tf.reshape(self.in_states, [1, self.num_states])
@@ -36,29 +37,48 @@ class Model():
         self.output_values = tf.reshape(self.output, [1,self.num_actions])
         self.target_values = tf.placeholder(tf.float32, shape=[1, self.num_actions], name="targets")
         # Try to use  tf.losses.mean_squared_error next time. https://www.tensorflow.org/api_docs/python/tf/losses/mean_squared_error
-        self.loss = -tf.reduce_mean(tf.squared_difference(self.target_values, self.output_values))
+        self.loss = tf.reduce_mean(tf.squared_difference(self.target_values, self.output_values))
         #https://www.tensorflow.org/api_docs/python/tf/train/AdamOptimizer
-        self.train_op = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
+        self.train = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
     def record(self, state, action, reward, next_state, done):
         # Remove some random elements.
         if len(self.memory) < self.memory_limit:
             random.shuffle(self.memory)
             # Toss out 1/4 of them.
             self.memory = self.memory[0:self.memory_limit * 3/4]
-        self.memory.append((state, action, reward, next_state))
+        self.memory.append((state, action, reward, next_state, done))
+    # Maybe try this as a 32 batch vs online process?
+    # Change input vector to ? x 4....
+    # I think it will need to be online though?
     def replay(self):
-        pass
-
+        random.shuffle(self.memory)
+        epoch_loss = 0
+        for i in range(self.replay_batch):
+            state, action, reward, next_state, done = self.memory.pop()
+            target = reward
+            if not done:
+                target = reward + self.gamma * np.amax(sess.run(model.output_values, feed_dict={model.in_states: next_state}))
+            target_value = sess.run(model.output_values, feed_dict={model.in_states: state})
+            target_value[0][action] = target
+            t, l = sess.run([model.train, model.loss], feed_dict={model.in_states: state, model.target_values: target_value})
+            epoch_loss += l
+            if model.epsilon > model.epsilon_min:
+                model.epsilon *= model.epsilon_decay
+        return epoch_loss
 env = gym.make('CartPole-v0')
-episodes = 20
+episodes = 2000
 # I believe the game only runs to 200/300 before it finishes?
 steps = 400
 model = Model()
+
+# Try training in batch, using a discount function of future rewards.
+# Currently this algo is not really taking into account going long is better.
 with tf.Session() as sess:
     init = tf.global_variables_initializer()
     sess.run(init)
     running_rewards = []
     for e in range(episodes):
+        # np.reshape(next_state, [1, 4]) a better possibility.
         state = env.reset()
         for step in range(steps):
             # Choose highest prob as our best action.
@@ -68,12 +88,20 @@ with tf.Session() as sess:
                 action = env.action_space.sample()
             new_state, rewards, done, _ = env.step(action)
             # Record response to replay memory.
+            if done:
+                rewards = -10
             model.record(state, action, rewards, new_state, done)
             state = new_state
             if done:
-                print "Episode {} / {}, Score: {}".format(e, episodes, step)
+                #print "Episode {} / {}, Score: {}".format(e, episodes, step)
+                running_rewards.append(step)
                 break
+            if len(model.memory) > model.replay_batch:
+                model.replay()
+        if e % 100 == 0:
+            print "Episode {} Running mean {}: Epsilon {}".format(e, np.mean(running_rewards[-100:]), model.epsilon)
 
 
-
-
+# https://www.tensorflow.org/guide/saved_model
+# https://www.tensorflow.org/guide/summaries_and_tensorboard
+# https://stackoverflow.com/questions/44207329/how-to-visualize-loss-and-accuracy-the-best
