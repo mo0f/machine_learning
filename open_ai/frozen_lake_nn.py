@@ -49,7 +49,7 @@ with tf.Session() as sess:
         while j < 99:
             j+=1
             #Choose an action by greedily (with e chance of random action) from the Q-network
-            a, allQ = sess.run([predict,Qout], feed_dict={inputs1:np.identity(16)[s:s+1]})
+            a, allQ = sess.run([predict, Qout], feed_dict={inputs1:np.identity(16)[s:s+1]})
             if np.random.rand(1) < e:
                 a[0] = env.action_space.sample()
             #Get new state and reward from environment
