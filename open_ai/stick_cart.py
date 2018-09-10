@@ -6,9 +6,9 @@ import tensorflow as tf
 class Model():
     def __init__(self):
         self.memory = []
-        self.memory_limit = 5000
+        self.memory_limit = 2000
         self.replay_batch = 32
-        self.gamma = 0.999
+        self.gamma = 0.995
         self.lr = 0.001
         # Random Action Prob.
         self.epsilon = 1
@@ -20,21 +20,26 @@ class Model():
         self.num_states = 4
         # [Move left, Move right]
         self.num_actions = 2
-        self.num_hidden = 32
+        self.num_hidden = 24
         # Input is State in this case its 4 Params:
         self.in_states = tf.placeholder(tf.float32, shape=[self.num_states,], name="in_state")
         self.reform_states = tf.reshape(self.in_states, [1, self.num_states])
         # Default initializers, which is uniform distro or tf.glorot_uniform_initializer.
         self.hidden_1 = tf.get_variable("hidden_1", shape=[self.num_states, self.num_hidden], dtype=tf.float32)
         self.first_layer = tf.nn.relu(tf.matmul(self.reform_states, self.hidden_1))
-        self.hidden_2 = tf.get_variable("hidden_2", shape=[self.num_hidden, self.num_actions], dtype=tf.float32)
+        # This might need to be 32x32...
+        self.hidden_2 = tf.get_variable("hidden_2", shape=[self.num_hidden, self.num_hidden], dtype=tf.float32)
+        
         # Try adding more layers and seeing whats up.
         #second_layer = tf.nn.relu(tf.matmul(first_layer, hidden_2))
         #output = tf.get_variable("output", shape=[self.num_actions, 1], dtype=tf.float32)
         # Default Linear Activation.
         #output_layer = tf.matmul(second_layer, output)
-        self.output = tf.nn.softmax(tf.matmul(self.first_layer, self.hidden_2))
+        self.second_layer = tf.nn.relu(tf.matmul(self.first_layer, self.hidden_2))
+        self.out_layer = tf.get_variable("outlayer", shape=[self.num_hidden, self.num_actions], dtype=tf.float32)
+        self.output = tf.nn.softmax(tf.matmul(self.second_layer, self.out_layer))
         self.output_values = tf.reshape(self.output, [1,self.num_actions])
+        # For loss calc.
         self.target_values = tf.placeholder(tf.float32, shape=[1, self.num_actions], name="targets")
         # Try to use  tf.losses.mean_squared_error next time. https://www.tensorflow.org/api_docs/python/tf/losses/mean_squared_error
         self.loss = tf.reduce_mean(tf.squared_difference(self.target_values, self.output_values))
