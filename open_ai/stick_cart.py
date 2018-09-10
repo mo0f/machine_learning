@@ -65,10 +65,20 @@ class Model():
             if model.epsilon > model.epsilon_min:
                 model.epsilon *= model.epsilon_decay
         return epoch_loss
+
+loss_val = tf.placeholder(tf.float32, name='loss_val')
+summary_loss = tf.summary.scalar('loss_summary', loss_val)
+    
+log_dir = "output/train"
 env = gym.make('CartPole-v0')
-episodes = 2000
+episodes = 200
 # I believe the game only runs to 200/300 before it finishes?
 steps = 400
+
+if tf.gfile.Exists(log_dir):
+    tf.gfile.DeleteRecursively(log_dir)
+    tf.gfile.MakeDirs(log_dir)
+
 model = Model()
 
 # Try training in batch, using a discount function of future rewards.
@@ -76,10 +86,14 @@ model = Model()
 with tf.Session() as sess:
     init = tf.global_variables_initializer()
     sess.run(init)
+   # merged = tf.summary.merge_all()
+    train_writer = tf.summary.FileWriter(log_dir, sess.graph)
+
     running_rewards = []
     for e in range(episodes):
         # np.reshape(next_state, [1, 4]) a better possibility.
         state = env.reset()
+       # train_writer.add_summary(tf.summary.scalar('epislon', model.epsilon), e)
         for step in range(steps):
             # Choose highest prob as our best action.
             action = np.argmax(sess.run(model.output_values, feed_dict={model.in_states: state}))
@@ -97,7 +111,9 @@ with tf.Session() as sess:
                 running_rewards.append(step)
                 break
             if len(model.memory) > model.replay_batch:
-                model.replay()
+                losses = model.replay()
+                summary = sess.run(summary_loss, feed_dict={loss_val: losses})
+                train_writer.add_summary(summary, step)
         if e % 100 == 0:
             print "Episode {} Running mean {}: Epsilon {}".format(e, np.mean(running_rewards[-100:]), model.epsilon)
 
