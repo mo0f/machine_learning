@@ -14,13 +14,13 @@ class Model():
         self.epsilon = 1
         # If using decaying epsilons
         self.epsilon_min = .01
-        self.epsilon_decay = 0.99
+        self.epsilon_decay = 0.995
         self.model = ''
         # [Cart Pos, Cart Vel, Pole Angle, Pole Velocity at Tip]
         self.num_states = 4
         # [Move left, Move right]
         self.num_actions = 2
-        self.num_hidden = 24
+        self.num_hidden = 32
         # Input is State in this case its 4 Params:
         self.in_states = tf.placeholder(tf.float32, shape=[self.num_states,], name="in_state")
         self.reform_states = tf.reshape(self.in_states, [1, self.num_states])
