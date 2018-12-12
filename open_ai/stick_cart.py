@@ -3,19 +3,19 @@ import numpy as np
 import random
 import tensorflow as tf
 
+# Try again but code using Keras/the shortened TF API
 class Model():
     def __init__(self):
         self.memory = []
         self.memory_limit = 2000
         self.replay_batch = 32
-        self.gamma = 0.995
+        self.gamma = 0.95
         self.lr = 0.001
         # Random Action Prob.
         self.epsilon = 1
         # If using decaying epsilons
         self.epsilon_min = .01
         self.epsilon_decay = 0.995
-        self.model = ''
         # [Cart Pos, Cart Vel, Pole Angle, Pole Velocity at Tip]
         self.num_states = 4
         # [Move left, Move right]
@@ -42,6 +42,7 @@ class Model():
         # For loss calc.
         self.target_values = tf.placeholder(tf.float32, shape=[1, self.num_actions], name="targets")
         # Try to use  tf.losses.mean_squared_error next time. https://www.tensorflow.org/api_docs/python/tf/losses/mean_squared_error
+        ### Check if theres an issue here, if we need to provide the dimensions.
         self.loss = tf.reduce_mean(tf.squared_difference(self.target_values, self.output_values))
         #https://www.tensorflow.org/api_docs/python/tf/train/AdamOptimizer
         self.train = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
